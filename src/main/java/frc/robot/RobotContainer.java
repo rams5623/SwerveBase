@@ -24,8 +24,17 @@ import swervelib.SwerveInputStream;
 public class RobotContainer
 {
 
-  // Replace with CommandPS4Controller or CommandJoystick if needed
-  final         CommandXboxController driverXbox = new CommandXboxController(0);
+  final CommandXboxController driverXbox = new CommandXboxController(0);
+  private final Trigger xboxA = driverXbox.a();
+  private final Trigger xboxX = driverXbox.x();
+  private final Trigger xboxLT = driverXbox.leftTrigger(0.2);
+  private final Trigger xboxRT = driverXbox.rightTrigger(0.2);
+
+
+
+
+
+
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem       drivebase  = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
                                                                                 "swerve"));
@@ -40,6 +49,14 @@ public class RobotContainer
                                                             .deadband(OperatorConstants.DEADBAND)
                                                             .scaleTranslation(0.8)
                                                             .allianceRelativeControl(false);
+
+SwerveInputStream driveAngularVelocity_Slow = SwerveInputStream.of(drivebase.getSwerveDrive(),
+                                                               () -> driverXbox.getLeftY() * -0.35,
+                                                               () -> driverXbox.getLeftX() * -0.35)
+                                                           .withControllerRotationAxis(() -> driverXbox.getRightX() * -.5)
+                                                           .deadband(OperatorConstants.DEADBAND)
+                                                           .scaleTranslation(0.8)
+                                                           .allianceRelativeControl(false);
 
   /**
    * Clone's the angular velocity input stream and converts it to a fieldRelative input stream.
@@ -90,6 +107,7 @@ public class RobotContainer
 
     // Command driveFieldOrientedDirectAngle         = drivebase.driveFieldOriented(driveDirectAngle);
     Command driveFieldOrientedAnglularVelocity    = drivebase.driveFieldOriented(driveAngularVelocity);
+    Command driveFieldOrientedAnglularVelocity_Slow    = drivebase.driveFieldOriented(driveAngularVelocity_Slow);
     // Command driveSetpointGen                      = drivebase.driveWithSetpointGeneratorFieldRelative(driveDirectAngle);
     // Command driveFieldOrientedDirectAngleSim      = drivebase.driveFieldOriented(driveDirectAngleSim);
     // Command driveFieldOrientedAnglularVelocitySim = drivebase.driveFieldOriented(driveAngularVelocitySim);
@@ -103,12 +121,14 @@ public class RobotContainer
        * A = Zero Gyro
        * X = Fake Vision Reading
        * B = DRIVE TO POSITION
+       * Y = Slow Mode
        * START = No Command
        * BACK = No Command
        * Left Bump = Lock Wheels
        * Right Bump = No Command
        */
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
+      xboxA
+        .onTrue((Commands.runOnce(drivebase::zeroGyro)));
       // driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
       // driverXbox.b().whileTrue(
       //     drivebase.driveToPose(
@@ -116,10 +136,13 @@ public class RobotContainer
       //                         );
       // driverXbox.start().whileTrue(Commands.none());
       // driverXbox.back().whileTrue(Commands.none());
-      driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
+     xboxX
+      .whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
 
+    xboxLT
+      .or(xboxRT)
+      .whileTrue(driveFieldOrientedAnglularVelocity_Slow);
   }
-
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class.
    *
